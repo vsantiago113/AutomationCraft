@@ -159,7 +159,8 @@ async def get_current_active_user(
 
 
 @app.post("/token")
-@app.post("/oauth_token_do")  # Added this line to support /oauth_token_do
+@app.post("/oauth_token.do")
+@app.post("/oauth_token_do")
 async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
 ) -> Token:
