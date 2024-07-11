@@ -1,5 +1,6 @@
+#!/usr/bin/env python3
+
 import socket
-import threading
 import http.server
 import socketserver
 import select
@@ -32,7 +33,9 @@ class ProxyHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
                 self.connection.setblocking(0)
                 remote_sock.setblocking(0)
                 while True:
-                    ready_socks, _, _ = select.select([self.connection, remote_sock], [], [])
+                    ready_socks, _, _ = select.select(
+                            [self.connection, remote_sock], [], []
+                        )
                     if self.connection in ready_socks:
                         data = self.connection.recv(4096)
                         if not data:
@@ -49,17 +52,28 @@ class ProxyHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
     def _proxy_request(self, method):
         parsed_url = urlparse(self.path)
-        scheme = 'https' if self.headers['Host'].endswith(':443') or self.path.startswith('https://') else 'http'
-        url = urlunparse((scheme, self.headers['Host'], parsed_url.path, '', parsed_url.query, ''))
+        if (
+                self.headers['Host'].endswith(':443') or
+                self.path.startswith('https://')
+                ):
+            scheme = 'https'
+        else:
+            scheme = 'http'
+        url = urlunparse((scheme, self.headers['Host'], parsed_url.path,
+                          '', parsed_url.query, ''))
 
-        headers = {key: value for key, value in self.headers.items() if key not in ('Host', 'Content-Length')}
+        headers = {key: value for key,
+                   value in self.headers.items(
+                       ) if key not in ('Host', 'Content-Length')}
         if 'Content-Length' in self.headers:
             headers['Content-Length'] = self.headers['Content-Length']
 
         try:
             response = requests.request(
                 method, url, headers=headers,
-                data=self.rfile.read(int(self.headers['Content-Length'])) if method == 'POST' else None,
+                data=self.rfile.read(
+                        int(self.headers['Content-Length'])
+                    ) if method == 'POST' else None,
                 verify=False
             )
             self.send_response(response.status_code)

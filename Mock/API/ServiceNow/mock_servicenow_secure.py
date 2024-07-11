@@ -1,16 +1,16 @@
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Union
-
 import jwt
-from fastapi import Depends, FastAPI, HTTPException, Request, Security, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm, SecurityScopes
+from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext
 from pydantic import BaseModel, ValidationError
 import logging
 
 # Constants
-SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
+SECRET_KEY = """09d25e094faa6ca2556c818166b7a
+9563b93f7099f6f0f4caa6cf63b88e8d3e7"""  # notsecret
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
@@ -37,7 +37,7 @@ fake_users_db = {
         "username": "johndoe",
         "full_name": "John Doe",
         "email": "johndoe@example.com",
-        "hashed_password": pwd_context.hash("secret"),  # hashed password
+        "hashed_password": pwd_context.hash("secret"),  # notsecret
         "disabled": False,
     },
 }
@@ -52,15 +52,15 @@ class Token(BaseModel):
 
 
 class TokenData(BaseModel):
-    username: str | None = None
+    username: Union[str, None] = None
     scopes: list[str] = []
 
 
 class User(BaseModel):
     username: str
-    email: str | None = None
-    full_name: str | None = None
-    disabled: bool | None = None
+    email: Union[str, None] = None
+    full_name: Union[str, None] = None
+    disabled: Union[bool, None] = None
 
 
 class UserInDB(User):
@@ -100,7 +100,8 @@ def authenticate_user(fake_db, username: str, password: str):
     return user
 
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None):
+def create_access_token(data: dict,
+                        expires_delta: Union[timedelta, None] = None):
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
@@ -111,7 +112,8 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     return encoded_jwt
 
 
-def create_refresh_token(data: dict, expires_delta: timedelta | None = None):
+def create_refresh_token(data: dict,
+                         expires_delta: Union[timedelta, None] = None):
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
@@ -146,6 +148,7 @@ async def get_current_user(
         raise credentials_exception
     return user
 
+
 async def get_current_active_user(
     current_user: Annotated[User, Depends(get_current_user)],
 ):
@@ -160,10 +163,12 @@ async def get_current_active_user(
 async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
 ) -> Token:
-    user = authenticate_user(fake_users_db, form_data.username, form_data.password)
+    user = authenticate_user(fake_users_db, form_data.username,
+                             form_data.password)
     if not user:
         logger.debug(f"Authentication failed for user {form_data.username}.")
-        raise HTTPException(status_code=400, detail="Incorrect username or password")
+        raise HTTPException(status_code=400,
+                            detail="Incorrect username or password")
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     refresh_token_expires = timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     access_token = create_access_token(
@@ -174,8 +179,10 @@ async def login_for_access_token(
         data={"sub": user.username},
         expires_delta=refresh_token_expires,
     )
-    scope = " ".join(form_data.scopes) if form_data.scopes else "all"  # Assign all access if scope is empty
-    logger.debug(f"Access token and refresh token created for user {user.username}.")
+    scope = " ".join(form_data.scopes) if form_data.scopes else "all"
+    logger.debug(
+            f"Access token and refresh token created for user {user.username}."
+        )
     return Token(
         access_token=access_token,
         token_type="bearer",
@@ -220,13 +227,16 @@ async def refresh_access_token(refresh_token: str):
 
 
 @app.get("/api/now/table/cmdb_ci_server")
-async def get_cmdb_data(request: Request, current_user: User = Depends(get_current_active_user)):
+async def get_cmdb_data(request: Request,
+                        current_user: User = Depends(get_current_active_user)):
     logger.debug(f"Current user accessing CMDB data: {current_user.username}")
     query_params = request.query_params.get('sysparm_query')
     fields = request.query_params.get('sysparm_fields')
     limit = int(request.query_params.get('sysparm_limit', 100))
 
-    logger.info(f"Query params: {query_params}, fields: {fields}, limit: {limit}")
+    logger.info(
+            f"Query params: {query_params}, fields: {fields}, limit: {limit}"
+        )
 
     mock_data = [
         {
@@ -260,4 +270,6 @@ async def get_cmdb_data(request: Request, current_user: User = Depends(get_curre
 if __name__ == "__main__":
     import uvicorn
     logger.debug("Starting application with Uvicorn")
-    uvicorn.run(app, host="0.0.0.0", port=8000, ssl_keyfile="selfsigned.key", ssl_certfile="selfsigned.crt", log_level="debug")
+    uvicorn.run(app, host="0.0.0.0", port=8000,
+                ssl_keyfile="selfsigned.key", ssl_certfile="selfsigned.crt",
+                log_level="debug")
